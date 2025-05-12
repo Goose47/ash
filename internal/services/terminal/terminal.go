@@ -23,7 +23,7 @@ func Associate(ctx context.Context, session *ssh.Session) error {
 		ssh.TTY_OP_OSPEED: 14400,
 	}
 
-	width, height, err := term.GetSize(int(os.Stdin.Fd()))
+	width, height, err := GetTerminalSize()
 	if err != nil {
 		width, height = 80, 24
 	}
