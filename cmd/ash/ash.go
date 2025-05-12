@@ -161,9 +161,18 @@ func execute(ctx context.Context, host *config.SSHHost) error {
 		ssh.TTY_OP_ISPEED: 14400,
 		ssh.TTY_OP_OSPEED: 14400,
 	}
-	if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
+	if err := session.RequestPty("xterm", 80, 160, modes); err != nil {
 		return err
 	}
+
+	// Switch terminal to raw mode.
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		return fmt.Errorf("failed to set terminal to raw mode: %w", err)
+	}
+	defer func() {
+		_ = term.Restore(int(os.Stdin.Fd()), oldState)
+	}()
 
 	// Start interactive shell.
 	if err := session.Shell(); err != nil {
