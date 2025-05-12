@@ -2,16 +2,16 @@ package terminal
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/term"
 	"io"
+	"log/slog"
 	"os"
 	"time"
 )
 
-func Associate(ctx context.Context, session *ssh.Session) error {
+func Associate(ctx context.Context, log *slog.Logger, session *ssh.Session) error {
 	// Configure interactive terminal.
 	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
@@ -29,12 +29,12 @@ func Associate(ctx context.Context, session *ssh.Session) error {
 	}
 
 	if err := session.RequestPty("xterm", height, width, modes); err != nil {
-		return err
+		return fmt.Errorf("failed to associate session with terminal: %w", err)
 	}
 
 	stop, err := StartResizeWatcher(session)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start resize watcher: %w", err)
 	}
 	defer stop()
 
@@ -44,12 +44,15 @@ func Associate(ctx context.Context, session *ssh.Session) error {
 		return fmt.Errorf("failed to set terminal to raw mode: %w", err)
 	}
 	defer func() {
-		_ = term.Restore(int(os.Stdin.Fd()), oldState)
+		err := term.Restore(int(os.Stdin.Fd()), oldState)
+		if err != nil {
+			log.Error("failed to set terminal to raw mode", slog.Any("error", err))
+		}
 	}()
 
 	// Start interactive shell.
 	if err := session.Shell(); err != nil {
-		return err
+		return fmt.Errorf("failed to start interactive shell: %w", err)
 	}
 
 	sessionChan := make(chan error)
@@ -73,7 +76,7 @@ func Associate(ctx context.Context, session *ssh.Session) error {
 
 func StartResizeWatcher(session *ssh.Session) (func(), error) {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		return nil, errors.New("stdin is not a terminal")
+		return nil, fmt.Errorf("stdin is not a terminal")
 	}
 
 	width0, height0, _ := term.GetSize(int(os.Stdin.Fd()))

@@ -44,13 +44,13 @@ func getAuthMethods(host *config.SSHHost) ([]ssh.AuthMethod, error) {
 		// Try to parse ssh key.
 		key, err := os.ReadFile(host.IdentityFile)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read key file %s: %w", host.IdentityFile, err)
 		}
 		signer, err := ssh.ParsePrivateKey(key)
 
 		if err != nil {
 			if !strings.Contains(err.Error(), "ssh: this private key is passphrase protected") {
-				return nil, err
+				return nil, fmt.Errorf("failed to parse key file %s: %w", host.IdentityFile, err)
 			}
 
 			// Key is passphrase protected. Prompt with password.
@@ -59,13 +59,12 @@ func getAuthMethods(host *config.SSHHost) ([]ssh.AuthMethod, error) {
 			fmt.Println()
 			if err != nil {
 				fmt.Println("Failed to read passphrase")
-				return nil, err
+				return nil, fmt.Errorf("failed to read passphrase: %w", err)
 			}
 
 			// Try to parse ssh key with passphrase.
 			signer, err = ssh.ParsePrivateKeyWithPassphrase(key, passphrase)
 			if err != nil {
-				fmt.Println("Wrong passphrase")
 				return nil, fmt.Errorf("failed to decrypt SSH key: %w", err)
 			}
 		}

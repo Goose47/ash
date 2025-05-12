@@ -16,7 +16,7 @@ import (
 func main() {
 	cfg, args, err := config.Load()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("failed to load configuration file: %v\n", err)
 		return
 	}
 
@@ -45,14 +45,21 @@ func main() {
 		cfg.Hosts = append(cfg.Hosts, host)
 	}
 
+	log.Info("starting ssh session")
 	client, session, err := sshlib.StartSession(host)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("failed to start ssh session", slog.Any("error", err))
 		return
 	}
 	defer func() {
-		_ = client.Close()
-		_ = session.Close()
+		err = session.Close()
+		if err != nil {
+			log.Warn("failed to close ssh session", slog.Any("error", err))
+		}
+		err := client.Close()
+		if err != nil {
+			log.Warn("failed to close ssh client", slog.Any("error", err))
+		}
 	}()
 
 	ctx := context.Background()
@@ -63,9 +70,9 @@ func main() {
 	// Execute ssh.
 	go func() {
 		defer cancel()
-		termErr = terminal.Associate(ctx, session)
+		termErr = terminal.Associate(ctx, log, session)
 		if termErr != nil {
-			log.Error("error while executing running ssh", slog.Any("error", termErr))
+			log.Error("error executing ssh")
 		}
 	}()
 
@@ -75,7 +82,6 @@ func main() {
 
 	select {
 	case <-sigs:
-		fmt.Println("signal received")
 	case <-ctx.Done():
 	}
 
@@ -89,6 +95,4 @@ func main() {
 		log.Error("error while saving config data", slog.Any("error", err))
 		return
 	}
-
-	fmt.Println("Bye!")
 }

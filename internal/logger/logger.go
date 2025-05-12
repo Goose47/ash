@@ -8,9 +8,9 @@ import (
 func New(verbose bool) *slog.Logger {
 	var log *slog.Logger
 
-	level := slog.LevelInfo
+	level := slog.LevelError
 	if verbose {
-		level = slog.LevelDebug
+		level = slog.LevelInfo
 	}
 
 	opts := &slog.HandlerOptions{
